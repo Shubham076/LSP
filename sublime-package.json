@@ -719,6 +719,11 @@
               "default": true,
               "markdownDescription": "Show code actions in hover popup if available."
             },
+            "show_external_content_in_hover": {
+              "type": "boolean",
+              "default": true,
+              "markdownDescription": "Show content contributed by other packages in the hover popup if available."
+            },
             "show_diagnostics_highlights": {
               "type": "boolean",
               "deprecationMessage": "Use \"diagnostics_highlight_style\" instead",

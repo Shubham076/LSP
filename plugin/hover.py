@@ -13,6 +13,8 @@ from .core.constants import HOVER_ENABLED_KEY
 from .core.constants import MarkdownLangMap
 from .core.constants import RegionKey
 from .core.constants import SHOW_DEFINITIONS_KEY
+from .core.hover_providers import hover_content_providers
+from .core.logging import exception_log
 from .core.open import lsp_range_from_uri_fragment
 from .core.open import open_file_uri
 from .core.open import open_in_browser
@@ -113,6 +115,7 @@ class LspHoverCommand(LspTextCommand):
             return
         self._base_dir = wm.get_project_path(self.view.file_name() or "")
         self._hover_responses: list[tuple[Hover, MarkdownLangMap | None]] = []
+        self._external_contents: list[tuple[int, str]] = []
         self._document_link: tuple[str, int, DocumentLink] | None = None
         self._actions_by_config: dict[str, list[Command | CodeAction]] = {}
         self._diagnostics_by_config: Sequence[tuple[SessionBufferProtocol, Sequence[Diagnostic]]] = []
@@ -126,6 +129,8 @@ class LspHoverCommand(LspTextCommand):
             if not only_diagnostics:
                 self.request_document_link_async(listener, hover_point)
                 self.request_symbol_hover_async(listener, hover_point)
+                if userprefs().show_external_content_in_hover:
+                    self.request_external_content_async(listener, hover_point)
             self._diagnostics_by_config = listener.get_diagnostics_async(
                 hover_point, userprefs().show_diagnostics_severity_level)
             if self._diagnostics_by_config:
@@ -173,6 +178,34 @@ class LspHoverCommand(LspTextCommand):
             sublime.status_message(f'Hover error: {error_messages}')
         self._hover_responses = hovers
         self.show_hover(listener, point, only_diagnostics=False)
+
+    def request_external_content_async(self, listener: AbstractViewListener, point: int) -> None:
+        providers = hover_content_providers()
+        if not providers:
+            return
+        promises: list[Promise[str | None]] = []
+        priorities: list[int] = []
+        for name, priority, provider in providers:
+            try:
+                promises.append(provider(self.view, point))
+                priorities.append(priority)
+            except Exception as ex:
+                exception_log(f'Exception in hover content provider "{name}"', ex)
+        if promises:
+            Promise.all(promises).then(partial(self._on_external_content_settled, listener, point, priorities))
+
+    def _on_external_content_settled(
+        self,
+        listener: AbstractViewListener,
+        point: int,
+        priorities: list[int],
+        contents: list[str | None]
+    ) -> None:
+        self._external_contents = [
+            (priority, content) for priority, content in zip(priorities, contents) if content
+        ]
+        if self._external_contents:
+            self.show_hover(listener, point, only_diagnostics=False)
 
     def request_document_link_async(self, listener: AbstractViewListener, point: int) -> None:
         if session := self.best_session('documentLinkProvider', point):
@@ -279,7 +312,13 @@ class LspHoverCommand(LspTextCommand):
                 self._base_dir
             )
         hover_content = self.hover_content()
-        contents += hover_content
+        # Content of providers registered with a negative priority is rendered above the content of the
+        # language servers, the others below it.
+        sections = [html_wrapper(content) for priority, content in self._external_contents if priority < 0]
+        if hover_content:
+            sections.append(hover_content)
+        sections.extend(html_wrapper(content) for priority, content in self._external_contents if priority >= 0)
+        contents += '<hr class="m-0">'.join(sections)
         link_content, link_range = self.link_content_and_range()
         only_link_content = not bool(contents) and link_range is not None
         if prefs.show_symbol_action_links and contents and not only_diagnostics and hover_content:

@@ -149,6 +149,10 @@
   // Show code actions in hover popup if available
   "show_code_actions_in_hover": true,
 
+  // Show content contributed by other packages (for example debug values from a debugger
+  // package) in the hover popup if available
+  "show_external_content_in_hover": true,
+
   // Show symbol action links in hover popup if available
   "show_symbol_action_links": true,
 

@@ -21,6 +21,9 @@ from .core.file_watcher import FileWatcherEvent
 from .core.file_watcher import FileWatcherEventType
 from .core.file_watcher import FileWatcherProtocol
 from .core.file_watcher import register_file_watcher_implementation
+from .core.hover_providers import HoverContentProvider
+from .core.hover_providers import register_hover_content_provider
+from .core.hover_providers import unregister_hover_content_provider
 from .core.promise import PackagedTask
 from .core.promise import Promise
 from .core.protocol import ClientNotification
@@ -74,6 +77,7 @@ __all__ = [
     'FileWatcherEvent',
     'FileWatcherEventType',
     'FileWatcherProtocol',
+    'HoverContentProvider',
     'IsApplicableContext',
     'LocationPicker',
     'LspExecuteCommand',
@@ -111,10 +115,12 @@ __all__ = [
     'position_to_offset',
     'region_to_range',
     'register_file_watcher_implementation',
+    'register_hover_content_provider',
     'register_plugin',
     'request_handler',
     'text_document_identifier',
     'text_document_position_params',
+    'unregister_hover_content_provider',
     'unregister_plugin',
     'uri_from_view',
     'uri_handler',
